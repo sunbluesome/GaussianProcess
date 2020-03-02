@@ -54,8 +54,17 @@ $$
 もちろんこれを直接計算できることに越したことはないのですが、カーネル行列の計算量は$O(N^2)$です。逆行列に至っては$O(N^3)$の計算量とメモリが必要になり、データが多いと計算量が爆発し使い物にならないという問題が発生します。そこで、同時分布$p\left(\mathbf{f}, \mathbf{f}_{*}\right)$を近似しようというのが補助変数法です。ガウス過程回帰だけでなく殆どのスパース近似で用いられる方法とのことです。
 
 ## 補助変数法（Inducing Variable Methodl; IVM）
+計算量を減らす近似の手段として、補助変数（inducing variable）$\mathbf{u} = \left[ u_1, \ldots, u_m\right]^{\mathrm{T}}$を同時分布$p(\mathbf{f}_*, \mathbf{f})$に導入します。ガウス過程において補助変数を導入するということは、対応する補助入力（inducing inputs）$X_\mathbf{u}$を導入したこと同義です。事後分布では積分消去されるのがミソですが、ただ積分消去するだけでは計算量が増えるだけになってしまいます。そこで、$\mathbf{u}$の導入に際して$\mathbf{f}, \mathbf{f}_*$の条件付き独立を仮定し、以下のような近似を行います。
+
+$$
+p\left(\mathbf{f}_{*}, \mathbf{f}\right) \simeq q\left(\mathbf{f}_{*}, \mathbf{f}\right)=\int q\left(\mathbf{f}_{*} | \mathbf{u}\right) q(\mathbf{f} | \mathbf{u}) p(\mathbf{u}) \mathrm{d} \mathbf{u}
+$$
+
+この$q(\cdot)$を決めようというのが補助変数法です。
+
+
 #### The Subset of Data (SoD) Approximation
-データの一部だけを使う方法です。データが多すぎるなら削ればよいということですね。これは近似と呼ぶのかわかりませんが、計算量を減らす最も簡単な手法ですね。ただ、せっかく取れているデータを使わないのはもったいありません。以降で紹介する4つ（説明するのは3つ）の方法では、データを捨てずに事後分布を近似していきます。
+データの一部だけを使う方法です。データが多すぎるなら削ればよいということです。これは近似と呼ぶのかわかりませんが、計算量を減らす最も簡単な手法ですね。ただ、せっかく取れているデータを使わないのはもったいありません。以降で紹介する4つ（説明するのは3つ）の方法では、データを捨てずに事後分布を近似していきます。
 
 #### The Subset of Regressors (SoR) Approximation
 #### The Deterministic Training Conditional (DTC) Approximation
