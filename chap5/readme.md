@@ -30,23 +30,29 @@ $$
 　では、関数の事後分布$p(\mathbf{f_*} | \mathbf{y})$を導出していきます。ベイズの定理より、
 
 $$
-p\left(\mathbf{f}, \mathbf{f}_{*} | \mathbf{y}\right) = \frac{p\left(\mathbf{f}, \mathbf{f}_{*}\right) p(\mathbf{y} | \mathbf{f})}{p(\mathbf{y})} \\
-p\left(\mathbf{f}_{*} | \mathbf{y}\right)=\int p\left(\mathbf{f}, \mathbf{f}_{*} | \mathbf{y}\right) \mathrm{d} \mathbf{f}=\frac{1}{p(\mathbf{y})} \int p(\mathbf{y} | \mathbf{f}) p\left(\mathbf{f}, \mathbf{f}_{*}\right) \mathrm{d} \mathbf{f}
+\begin{aligned}
+p\left(\mathbf{f}, \mathbf{f}_{*} | \mathbf{y}\right) &= \frac{p\left(\mathbf{f}, \mathbf{f}_{*}\right) p(\mathbf{y} | \mathbf{f})}{p(\mathbf{y})} \\
+p\left(\mathbf{f}_{*} | \mathbf{y}\right) &= \int p\left(\mathbf{f}, \mathbf{f}_{*} | \mathbf{y}\right) \mathrm{d} \mathbf{f} \\
+&= \frac{1}{p(\mathbf{y})} \int p(\mathbf{y} | \mathbf{f}) p\left(\mathbf{f}, \mathbf{f}_{*}\right) \mathrm{d} \mathbf{f}
+\end{aligned}
 $$
 
 ここで、
 
 $$
-p\left(\mathbf{f}, \mathbf{f}_{*}\right | \mathbf{y})=\mathcal{N}\left(\mathbf{0},\left[\begin{array}{ll}
+\begin{aligned}
+p\left(\mathbf{f}, \mathbf{f}_{*}\right | \mathbf{y}) &= \mathcal{N}\left(\mathbf{0},\left[\begin{array}{ll}
 K_{\mathrm{f}, \mathrm{f}} & K_{*, \mathrm{f}} \\
 K_{\mathrm{f}, *} & K_{*, *}
-\end{array}\right]\right), \quad \text { and } \quad p(\mathbf{y} | \mathbf{f})=\mathcal{N}\left(\mathbf{f}, \sigma_{\mathrm{noise}}^{2} I\right)
+\end{array}\right]\right) \\
+p(\mathbf{y} | \mathbf{f}) &= \mathcal{N}\left(\mathbf{f}, \sigma_{\mathrm{noise}}^{2} I\right)
+\end{aligned}
 $$
 
 です。[条件付き多変量ガウス分布の式](https://hotoke-x.hatenablog.com/entry/2020/01/22/145811#%E6%9D%A1%E4%BB%B6%E4%BB%98%E3%81%8D%E5%A4%9A%E5%A4%89%E9%87%8F%E3%82%AC%E3%82%A6%E3%82%B9%E5%88%86%E5%B8%83)から
 
 $$
-p\left(\mathbf{f}_{*} | \mathbf{y}\right)=\mathcal{N}\left(K_{*, \mathbf{f}}\left(K_{\mathbf{f}, \mathbf{f}}+\sigma_{\text {noise }}^{2} I\right)^{-1} \mathbf{y}, K_{*, *}-K_{*, \mathbf{f}}\left(K_{\mathbf{f}, \mathbf{f}}+\sigma_{\text {noise }}^{2} I\right)^{-1} K_{\mathbf{f}, *}\right)
+p\left(\mathbf{f}_{*} | \mathbf{y}\right)=\mathcal{N}\left(K_{*, \mathbf{f}}\left(K_{\mathbf{f}, \mathbf{f}}+\sigma_{\text {noise }}^{2} I\right)^{-1} \mathbf{y}, K_{*, *}-K_{*, \mathbf{f}}\left(K_{\mathbf{f}, \mathbf{f}}+\sigma_{\text {noise }}^{2} I\right)^{-1} K_{\mathbf{f}, *}\right) \label{eq:predict}
 $$
 
 となることがわかります。
@@ -60,14 +66,162 @@ $$
 p\left(\mathbf{f}_{*}, \mathbf{f}\right) \simeq q\left(\mathbf{f}_{*}, \mathbf{f}\right)=\int q\left(\mathbf{f}_{*} | \mathbf{u}\right) q(\mathbf{f} | \mathbf{u}) p(\mathbf{u}) \mathrm{d} \mathbf{u}
 $$
 
-この$q(\cdot)$を決めようというのが補助変数法です。
+この$q(\cdot|\mathbf{u})$を決めようというのが補助変数法です。
+
+また、登場する式のリファレンスとしても便利なので、厳密な条件付き分布についても一度整理しておきましょう。厳密な条件付き分布$p(\cdot|\mathbf{u})$は
+
+$$
+\begin{aligned}
+p(\mathbf{f} | \mathbf{u}) &=\mathcal{N}\left(K_{f, u} K_{\mathbf{u}, \mathbf{u}}^{-1} \mathbf{u}, \;\; K_{\mathbf{f}, \mathbf{f}}-Q_{\mathbf{f}, \mathbf{f}}\right) \label{eq:ref_train}\\
+p\left(\mathbf{f}_{*} | \mathbf{u}\right) &=\mathcal{N}\left(K_{*, \mathbf{u}} K_{\mathbf{u}, \mathbf{u}}^{-1} \mathbf{u}, \;\;K_{*, *}-Q_{*, *}\right) \label{eq:ref_test}
+\end{aligned}
+$$
+
+です。
 
 
 #### The Subset of Data (SoD) Approximation
 データの一部だけを使う方法です。データが多すぎるなら削ればよいということです。これは近似と呼ぶのかわかりませんが、計算量を減らす最も簡単な手法ですね。ただ、せっかく取れているデータを使わないのはもったいありません。以降で紹介する4つ（説明するのは3つ）の方法では、データを捨てずに事後分布を近似していきます。
 
 #### The Subset of Regressors (SoR) Approximation
+SoRは以下の事前重みを持つ線形モデルと解釈することができます。
+
+$$
+f_* = K_{*, \mathbf{u}}\mathbf{w_u}, \quad \text{with} \quad p(\mathbf{w_u}) = \mathcal{N}\left(\mathbf{0}, K_{\,\mathbf{u, u}}^{-1}\right)
+$$
+
+事前分布$p(\mathbf{w_u})$の分散を$K_{\,\mathbf{u, u}}^{-1}$としているところが重要で、ガウス過程の事前分布が自然と現れます。
+
+$$
+\mathbf{u}=K_{\mathbf{u}, \mathbf{u}} \mathbf{w}_{\mathbf{u}} \Rightarrow\left\langle\mathbf{u} \mathbf{u}^{\top}\right\rangle= K_{\mathbf{u}, \mathbf{u}}\left\langle\mathbf{w}_{\mathbf{u}} \mathbf{w}_{\mathbf{u}}^{\top}\right\rangle K_{\mathbf{u}, \mathbf{u}}=K_{\mathbf{u}, \mathbf{u}}
+$$
+
+したがって、$\mathbf{w_u}=K_{\mathbf{u,u}}^{-1}\mathbf{u}$より、
+
+$$
+\mathbf{f}_{*}=K_{*, \mathbf{u}} K_{\mathbf{u}, \mathbf{u}}^{-1} \mathbf{u}, \quad \text { with } \quad \mathbf{u} \sim \mathcal{N}\left(\mathbf{0}, K_{\mathbf{u}, \mathbf{u}}\right)
+$$
+
+となり、\eqref{eq:predict}と見比べると自然な形で式が得られたことがわかります。以上より、$q(\cdot|\mathbf{u})$は
+
+$$
+\begin{aligned}
+q_{\mathrm{SoR}}(\mathbf{f} | \mathbf{u}) &= \mathcal{N}\left(K_{\mathrm{f}, \mathbf{u}} K_{\mathbf{u}, \mathbf{u}}^{-1} \mathbf{u}, \mathbf{0}\right) \\
+q_{\mathrm{SoR}}\left(\mathbf{f}_{*} | \mathbf{u}\right) &= \mathcal{N}\left(K_{*, \mathbf{u}} K_{\mathbf{u}, \mathbf{u}}^{-1} \mathbf{u}, \mathbf{0}\right)
+\end{aligned}
+$$
+
+で与えられ。
+
+$$
+q_{\mathrm{SoR}}\left(\mathbf{f}, \mathbf{f}_{*}\right)=\mathcal{N}\left(\mathbf{0},\left[\begin{array}{ll}
+Q_{\mathrm{f}, \mathrm{f}} & Q_{\mathrm{f}, *} \\
+Q_{*, f} & Q_{*, *}
+\end{array}\right]\right) \\
+Q_{\mathbf{a}, \mathbf{b}} \triangleq K_{\mathbf{a}, \mathbf{u}} K_{\mathbf{u}, \mathbf{u}}^{-1} K_{\mathbf{u}, \mathbf{b}} 
+$$
+
+となることがわかります。この$Q_{\mathbf{a,b}}$も一応導出しておきましょう。
+
+$$
+\begin{aligned}
+cov\left(q_{\mathrm{SoR}}(\mathbf{f} | \mathbf{u}), q_{\mathrm{SoR}}(\mathbf{f}_* | \mathbf{u})\right) &= K_{\mathbf{f,u}}K_{\mathbf{u,u}}^{-1}\mathbf{u}\left(K_{\mathbf{f,u}}K_{\mathbf{u,u}}^{-1}\mathbf{u}\right)^{\top} \\
+&= K_{\mathbf{f,u}}K_{\mathbf{u,u}}^{-1}\mathbf{u}\mathbf{u}^{\text{T}}K_{\mathbf{u,u}}^{-1}K_{\mathbf{u,*}} \\
+&= K_{\mathbf{f,u}}K_{\mathbf{u,u}}^{-1}K_{\mathbf{u,*}}
+\end{aligned}
+$$
+
+また、近似された事後分布$q_{\mathrm{SoR}}(\mathbf{f_*} | \mathbf{y})$は、$q_{\mathrm{SoR}}(\mathbf{f} | \mathbf{f_*})$の分散共分散行列の対角成分にノイズを足し、条件付き多変量ガウス分布の式を使えば
+
+$$
+\begin{aligned}
+q_{\mathrm{SoR}}\left(\mathbf{f}_{*} | \mathbf{y}\right) &=\mathcal{N}\left(Q_{*, \mathbf{f}}\left(Q_{\mathbf{f}, \mathbf{f}}+\sigma_{\text {noise }}^{2} I\right)^{-1} \mathbf{y}, Q_{* *}-Q_{*, \mathbf{f}}\left(Q_{\mathbf{f}, \mathbf{f}}+\sigma_{\text {noise }}^{2} I\right)^{-1} Q_{\mathbf{f}, *}\right) \label{eq:sor_iterpret} \\
+&=\mathcal{N}\left(\sigma^{-2} K_{*, u} \Sigma K_{\mathbf{u}, \mathbf{f}},\;\; K_{*, u} \Sigma K_{\mathbf{u}, *}\right) \label{eq:sor_mem} \\
+\Sigma &= \left(\sigma^{-2} K_{\mathbf{u}, \mathbf{f}} K_{\mathbf{f}, \mathbf{u}}+K_{\mathbf{u}, \mathbf{u}}\right)^{-1}
+\end{aligned}
+$$
+
+となります。\eqref{eq:sor_mem}の形は実装するときにメモリに優しい形になっています（導出は最後にやります）。理解するだけなら\eqref{eq:sor_iterpret}がわかれば十分です。式をよく見るとわかるのですが、SoRは結局のところカーネル関数を$k_{\mathrm{SoR}}\left(\mathbf{x}_{i}, \mathbf{x}_{j}\right)=k\left(\mathbf{x}_{i}, \mathbf{u}\right) K_{\mathbf{u}, \mathbf{u}}^{-1} k\left(\mathbf{u}, \mathbf{x}_{j}\right)$と置いた<font color="red">ガウス過程に対応します（ここ重要）</font>。
+
+さて、自然な形で$q(\cdot|\mathbf{u})$が決められたわけですが、この近似によって生じるデメリットもあります。
+
+#### メリット
+厳密にガウス過程（これから厳密なガウス過程ではなくなっていくのでメリットとした）
+
+#### デメリット
+たまたま得られたデータのばらつきが小さかった時に予測分散が過剰に小さくなるなど、補助変数を介する条件付き分布を導入したことによる自由度の制約を受けます。
+
+以下の手法はこのデメリットを緩和しようとするもので、分散が過剰に小さくならないよう、さらに前提を追加していきます（<font color="red">理論的には破綻するので厳密にはガウス過程ではなくなる</font>）。
+
 #### The Deterministic Training Conditional (DTC) Approximation
+DTCは、以下のような近似を行います。
+
+$$
+\begin{aligned}
+q_{\mathrm{DTC}}(\mathbf{f} | \mathbf{u}) &= \mathcal{N}\left(K_{\mathrm{f}, \mathbf{u}} K_{\mathbf{u}, \mathbf{u}}^{-1} \mathbf{u}, \mathbf{0}\right) \\
+q_{\mathrm{DTC}}\left(\mathbf{f}_{*} | \mathbf{u}\right) &= p\left(\mathbf{f}_{*} | \mathbf{u}\right)
+\end{aligned}
+$$
+
+式を見ればわかる通り、SoRとの本質的な違いは$q_{\mathrm{DTC}}\left(\mathbf{f}_{*} | \mathbf{u}\right)=p\left(\mathbf{f}_{*} | \mathbf{u}\right)$としている部分だけです。すなわち、近似された同時分布$q_{\mathrm{DTC}}\left(\mathbf{f}, \mathbf{f}_{*}\right)$は
+
+$$
+q_{\mathrm{DTC}}\left(\mathbf{f}, \mathbf{f}_{*}\right)=\mathcal{N}\left(\mathbf{0},\left[\begin{array}{ll}
+Q_{\mathrm{f}, f} & Q_{\mathrm{f}, *} \\
+Q_{*, \mathrm{f}} & K_{*, *}
+\end{array}\right]\right)
+$$
+
+となります。$Q$の中に$K$が混ざっていることからもわかる通り、この時点で厳密にはガウス過程ではなくなっています。あとは、SoRの時と同様に事後分布を計算すれば、
+
+$$
+\begin{aligned}
+q_{\mathrm{DTC}}\left(\mathbf{f}_{*} | \mathbf{y}\right) &=\mathcal{N}\left(Q_{*, \mathbf{f}}\left(Q_{\mathbf{f}, \mathbf{f}}+\sigma_{\text {noise }}^{2} I\right)^{-1} \mathbf{y}, K_{*, *}-Q_{*, \mathbf{f}}\left(Q_{\mathbf{f}, \mathbf{f}}+\sigma_{\text {noise }}^{2} I\right)^{-1} Q_{\mathbf{f}, *}\right.\\
+&=\mathcal{N}\left(\sigma^{-2} K_{*, u} \Sigma K_{\mathbf{u}, \mathbf{f}} \mathbf{y},\;\; K_{*, *}-Q_{*, *}+K_{*, \mathbf{u}} \Sigma K_{*, \mathbf{u}}^{\top}\right)
+\end{aligned}
+$$
+
+となります。SoRの事後分布と見比べると、分散共分散行列の式中の$Q_{*, *}$が$K_{*, *}$になっていることがわかります。$K_{*, *}-Q_{*, *}$が正定値であることから、SoRよりもDTCの法が予測分の分散が大きくなります。
+
+#### メリット
+SoRよりも予測分散が大きくなることが保証される。
+
+#### デメリット
+厳密なガウス過程ではなくなる。
+
 #### The Fully Independent Training Conditional (FITC) Approximation
+スパースガウス過程とも呼ばれ、以下のように近似を行います。
+
+$$
+\begin{aligned}
+q_{\mathrm{FTTC}}(\mathbf{f} | \mathbf{u}) &= \prod_{i=1}^{n} p\left(f_{i} | \mathbf{u}\right) = \mathcal{N}\left(K_{\mathrm{f}, \mathbf{u}} K_{\mathbf{u}, \mathbf{u}}^{-1} \mathbf{u}, \operatorname{diag}\left[K_{\mathrm{f}, \mathrm{f}}-Q_{\mathrm{f}, \mathrm{f}}\right]\right)\\
+q_{\mathrm{FITC}}\left(f_{*} | \mathbf{u}\right) &= p\left(f_{*} | \mathbf{u}\right)
+\end{aligned}
+$$
+
+DTCと異なるのは、$q_{\mathrm{FTTC}}(\mathbf{f} | \mathbf{u})$の分散共分散行列$\operatorname{diag}\left[K_{\mathrm{f}, \mathrm{f}}-Q_{\mathrm{f}, \mathrm{f}}\right]$の部分です。FITCがDTCより優れている点は、\eqref{eq:ref_train}と見比べるとよくわかります。FITCは対角成分を捨ててはいるものの、厳密なガウス過程の分散共分散行列の情報を使って近似を行っています（それでも$q_{\mathrm{FTTC}}(\mathbf{f}_* | \mathbf{u})=q_{\mathrm{FTTC}}(\mathbf{f} | \mathbf{u})$としてるので厳密なガウス過程ではない）。
+
+後は今まで通り計算していくと、
+
+$$
+\begin{aligned}
+q_{\mathrm{FITC}}\left(\mathbf{f}, f_{*}\right) &= \mathcal{N}\left(\mathbf{0},\left[\begin{array}{cc}
+Q_{\mathrm{f}, \mathbf{f}}-\operatorname{diag}\left[Q_{\mathrm{f}, \mathrm{f}}-K_{\mathrm{f}, \mathrm{f}}\right] & Q_{\mathrm{f}, *} \\
+Q_{*, \mathrm{f}} & K_{*, *}
+\end{array}\right]\right) \\
+q_{\mathrm{FITC}}\left(f_{*} | \mathbf{y}\right) &=\mathcal{N}\left(Q_{*, \mathbf{f}}\left(Q_{\mathrm{f}, \mathbf{f}}+\Lambda\right)^{-1} \mathbf{y}, K_{*, *}-Q_{*, \mathbf{f}}\left(Q_{\mathrm{f}, \mathbf{f}}+\Lambda\right)^{-1} Q_{\mathrm{f}, *}\right) \\
+&=\mathcal{N}\left(K_{*, \mathbf{u}} \Sigma K_{\mathbf{u}, \mathbf{f}} \Lambda^{-1} \mathbf{y}, K_{*, *}-Q_{*, *}+K_{*, \mathbf{u}} \Sigma K_{\mathbf{u}, *}\right)
+\end{aligned}
+$$
+
+となります。
+
 #### The Partially Independent Training Conditional (PITC) Approximation
 書籍「ガウス過程と機械学習」の取り扱い範囲を超えているので今回は取り扱いません。ただ、ここまで読み進めてくれた方ならわかると思いますが、さっきは相関を捨てていましたが、ある程度相関を拾ってあげることで近似精度を上げようという方法です。
+
+
+
+## 最後に
+メモリに優しい形の式を導出します。
+
+＜近日追記予定＞
