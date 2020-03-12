@@ -36,9 +36,13 @@ SubsetOfData(indices::Vector{Real}) = SubsetOfData(Int64.(indices))
 SubsetOfData(indices::Real) = SubsetOfData(Int64[indices])
 SubsetOfData() = SubsetOfData(Int64[])
 
-struct InducingVariableMethod <: PredictMethod 
+mutable struct FITC <: PredictMethod 
     iv::Vector{Float64}
 end 
+FITC(iv::Vector{Real}) = FITC(Int64.(iv))
+FITC(iv::Real) = FITC(Int64[iv])
+
+
 
 mutable struct GaussianProcess 
     k::Kernel
@@ -58,7 +62,7 @@ end
 logderiv(gp::GaussianProcess, xx::AbstractVector) = logderiv(gp, xx, xx)
 
 function _predict(gp::GaussianProcess, xtest::AbstractVector, xtrain::AbstractVector,
-                  ytrain::AbstractVector{T}, Kinv::AbstractMatrix{S}) where {T<:Real, S<:Real}
+                  ytrain::AbstractVector{T}, Kinv::AbstractMatrix{S}, method::SubsetOfData) where {T<:Real, S<:Real}
     s = kernel_matrix(gp.k, xtest) + [gp.η]
     k = kernel_matrix(gp.k, xtrain, xtest)
     μ = k'*Kinv*ytrain
@@ -66,7 +70,7 @@ function _predict(gp::GaussianProcess, xtest::AbstractVector, xtrain::AbstractVe
     return μ, σ2
 end
 _predict(gp::GaussianProcess, xtest::Real, xtrain::AbstractVector, ytrain::AbstractVector{T},
-         Kinv::AbstractMatrix{S}) where {T<:Real, S<:Real} = _predict(gp, [xtest], xtrain, ytrain, Kinv)
+         Kinv::AbstractMatrix{S}, method::SubsetOfData) where {T<:Real, S<:Real} = _predict(gp, [xtest], xtrain, ytrain, Kinv, method)
 
 function predict(gp::GaussianProcess, xtest::AbstractVector, xtrain::AbstractVector,
         ytrain::AbstractVector{T}, method::SubsetOfData) where {T<:Real}
@@ -76,9 +80,9 @@ function predict(gp::GaussianProcess, xtest::AbstractVector, xtrain::AbstractVec
     ytrain_reduce = length(method.indices)==0 ? ytrain : ytrain[method.indices]
 
     K = kernel_matrix(gp.k, xtrain_reduce) + diagm(gp.η*ones(length(xtrain_reduce)))
-    Kinv = Symmetric(inv(K))
+    Kinv = Symmetric(inv(bunchkaufman(K)))
     for (i,x) in enumerate(xtest)
-        _μ, _σ = _predict(gp, x, xtrain_reduce, ytrain_reduce, Kinv)
+        _μ, _σ = _predict(gp, x, xtrain_reduce, ytrain_reduce, Kinv, method)
         μs[i], σs[i] = _μ[1], _σ[1]
     end
     σs[findall(x->x<0, σs)] .= 0.;
@@ -93,57 +97,54 @@ predict(gp::GaussianProcess, xtest::Real, xtrain::AbstractVector,
 
 
 
-function _predict(gp::GaussianProcess, xt::AbstractVector, z::AbstractVector,
-                  u::AbstractVector{T}, Kmmi::AbstractMatrix{S}, Σi::AbstractMatrix{S}) where {T<:Real, S<:Real}
-    s = kernel_matrix(gp.k, xt) + [gp.η]
-    k = kernel_matrix(gp.k, z, xt)
-    μ = k'*Kmmi*u
-    σ2 = s - k'*Σi*k
-    return μ, σ2
-end
-_predict(gp::GaussianProcess, xt::Real, z::AbstractVector, u::AbstractVector{T},
-         Kmmi::AbstractMatrix{S}, Σi::AbstractMatrix{S}) where {T<:Real, S<:Real} = _predict(gp, [xt], z, u, Kmmi, Σi)
+# function _predict(gp::GaussianProcess, xt::AbstractVector, u::AbstractVector, ytrain::AbstractVector{T}, 
+#         Σ::AbstractMatrix{S}, Kuf::AbstractMatrix{S}, Λi::AbstractMatrix{S}, method::FITC) where {T<:Real, S<:Real}
+        
+#     Ktu = kernel_matrix(gp.k, xt, u)
+#     Ktt = kernel_matrix(gp.k, xt)
+
+#     μ = Ktu * Σ * Kuf * Λi * ytrain
+#     σ2 = Ktt
+#     return μ, σ2
+# end
+# _predict(gp::GaussianProcess, xt::Real, u::AbstractVector, ytrain::AbstractVector{T},
+#          Σ::AbstractMatrix{S}, Kuf::AbstractMatrix{S}, Λi::AbstractMatrix{S}, method::FITC) where {T<:Real, S<:Real} = _predict(gp, [xt], u, ytrain, Kut, Σ, Kuf, Λi, method)
 
 function predict(gp::GaussianProcess, xtest::AbstractVector, xtrain::AbstractVector,
-        ytrain::AbstractVector{T}, method::InducingVariableMethod) where {T<:Real}
+        ytrain::AbstractVector{T}, method::FITC) where {T<:Real}
     """
     Inducing Variable Methodではp(u)→p(f|u)→p(y|f)と3段階の生成過程を経ると考える。  
     データのノイズはp(y|f)で乗ってくるので、u, fを扱っている間はノイズが入ってくることはない。
     """
-    z = method.iv
+    u = method.iv
     N = length(xtrain)
-    M = length(z)
-    # In = Matrix{Float64}(I,N,N)
-    Im = Matrix{Float64}(I,M,M)
+    M = length(xtest)
 
     # get p(u|y)
-    kn = [kernel(gp.k, x, x) for x in xtrain]
-    Kmn = kernel_matrix(gp.k, z, xtrain)
-    Kmm = kernel_matrix(gp.k, z)
-    Kmmi = Symmetric(inv(Kmm))
-    
-    Λ = [kn[i] - Kmn[:,i]' * Kmmi * Kmn[:,i] for i in 1:N]
-    Kmn_Λi = hcat([Kmn[:,i] / (Λ[i] + gp.η) for i in 1:N]...)   # 行列にせずメモリ節約
-    # Qmm = Kmm + Kmn * inv(Λ + gp.η*In) * Kmn'
-    Qmm = Kmm + Kmn_Λi * Kmn'
-    Qmmi = Symmetric(inv(Qmm))
-    # u = Kmm * Qmmi * Kmn * inv(Λ + gp.η*In) * ytrain
-    u = Kmm * Qmmi * Kmn_Λi * ytrain
-    Σi = Kmmi * Qmm * Kmmi
+    Kff = Diagonal([kernel(gp.k, x, x) for x in xtrain])
+    Kuf = kernel_matrix(gp.k, u, xtrain)
+    Kuu = kernel_matrix(gp.k, u)
+    Kuui = Symmetric(inv(Kuu))
+    Kut = kernel_matrix(gp.k, u, xtest)
+    Ktt = kernel_matrix(gp.k, xtest)
 
-    # get p(y|u)
-    μs = zero(xtest)
-    σs = zero(xtest)
-    for (i,x) in enumerate(xtest)
-        _μ, _σ = _predict(gp, x, z, u, Kmmi, Σi)
-        μs[i], σs[i] = _μ[1], _σ[1]
-    end
+    Qfu = Kuf' * Kuui
+    Qff = Diagonal([dot(Qfu[i,:], Kuf[:,i]) for i in 1:N])
+    Qtu = Kut' * Kuui
+    Qtt = Diagonal([dot(Qtu[i,:], Kut[:,i]) for i in 1:M])
+
+    Λ = Kff - Qff + Diagonal(gp.η*ones(length(xtrain)))
+    Λi = Symmetric(inv(Λ)) 
+    Σ = Symmetric(inv(Kuu + Kuf * Λi * Kuf'))
+
+    μs = Kut' * Σ * Kuf * Λi * ytrain
+    σs = Ktt - Qtt + Diagonal(gp.η*ones(length(xtest)))
     σs[findall(x->x<0, σs)] .= 0.;
     return μs, σs
 end
 
 predict(gp::GaussianProcess, xtest::Real, xtrain::AbstractVector,
-        ytrain::AbstractVector{T}, method::InducingVariableMethod) where {T<:Real} = predict(gp, [xtest], xtrain, ytrain, method)
+        ytrain::AbstractVector{T}, method::FITC) where {T<:Real} = predict(gp, [xtest], xtrain, ytrain, method)
 
 function update!(gp::GaussianProcess, params::Vector{T}) where {T<:Real}
     update!(gp.k, params[1:end-1])

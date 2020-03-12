@@ -33,7 +33,7 @@ for N in Ns
 end
 
 # plot GP with whole data
-μs_whole, σs_whole = predict(gp, xtest, xtrain, ytrain, method)
+μs_whole, σs_whole = predict(gp, xtest, xtrain, ytrain)
 p = plot(xtest, sin.(2xtest); label=L"$\sin(2x)$", color=:black)
 plot!(xtest, μs_whole-2sqrt.(σs_whole); label="", alpha=0, fill=μs_whole+2sqrt.(σs_whole), fillalpha=0.3, color=:blue)
 plot!(xtest, μs_whole; st=:line, label="gp (μ±2σ)", color=:blue, ylim=(-3,4))
