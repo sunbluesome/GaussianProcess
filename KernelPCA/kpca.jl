@@ -10,7 +10,7 @@ datasets = pyimport("sklearn.datasets")
 n_samples = 1500
 noise = 0.0
 random_state = 0
-X_2d, _ = datasets.make_swiss_roll(n_samples, noise, random_state)
+X_2d, _ = datasets.make_swiss_roll(n_samples; noise=noise, random_state=random_state)
 
 # standardize
 # dt = fit(ZScoreTransform, X_2d, dims=1)
