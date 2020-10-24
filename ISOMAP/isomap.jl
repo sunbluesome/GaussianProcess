@@ -1,4 +1,5 @@
 using LinearAlgebra
+using Arpack
 using StatsBase
 using LightGraphs
 using SimpleWeightedGraphs
@@ -33,14 +34,13 @@ end
 
 # kenrel
 τ = 0.015
-σ = 1000.
+σ = 10.
 k = GaussianKernel(τ, σ)
 
 # adjacency matrix
 m = 8
-ε = 0.02
 K = kernel_matrix(k, X_1d)
-g = SimpleWeightedGraph(size(D)[1])
+g = SimpleWeightedGraph(size(K)[1])
 for i in axes(K, 1)
     ki = K[:, i]
     inds = findall(x -> x .≤ m, tiedrank(ki))
@@ -64,8 +64,9 @@ gm = 0.5 * (-D .+ D_row .+ D_col .- mean(D))
 vec_1 = ones(n_samples)
 Jn = Matrix(I, n_samples, n_samples) - (vec_1 * vec_1') / n_samples
 f = eigen(Jn * gm)
-eigen_values = reverse(f.values)
-eigen_vectors = reverse(f.vectors, dims=2)
+# f = eigs(gm, nev=2)
+eigen_values = f.values
+eigen_vectors = f.vectors
 
 function kpca(k, x_all, x, α)
     g = 0
@@ -85,9 +86,19 @@ for j in 1:ndim
     end
 end
 
-
-plot(X_kpca[1, :], X_kpca[2, :];
-     st=:scatter, label="kpca", ms=5, color=:blue, size=(400, 400))
+# plot
+plot(X_kpca[1, inds_clusters[1]], X_kpca[2, inds_clusters[1]];
+     st=:scatter, label="cluster 1", ms=5, size=(400, 400))
+for i in 2:5
+    plot!(
+        X_kpca[1, inds_clusters[i]],
+        X_kpca[2, inds_clusters[i]];
+        st=:scatter,
+        label=@sprintf("cluster %s", i),
+        ms=5,
+        size=(400, 400)
+    )
+end
 
 savepath = @sprintf("%s/isomap_(sigma=%s).png", @__DIR__, σ)
 savefig(savepath)
