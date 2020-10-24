@@ -18,8 +18,8 @@ xtest = collect(-1:0.01:5)
 
 # GP parameters
 τ = 1.
-σ = 1.
-η = 1.
+σ = 2.
+η = 0.1
 
 # Inducing Variables
 Ms = [2, 5, 10]
@@ -43,8 +43,9 @@ plot!(xtest, μs_whole; st=:line, label="gp (μ±2σ)", color=:blue, ylim=(-3,4)
 P = []
 P = push!(P, p)
 for i in 1:3
-    method = InducingVariableMethod(ivs[i])
-    μs,σs = predict(gp, xtest, xtrain, ytrain, method)
+    method = FITC(ivs[i])
+    μs, _σs = predict(gp, xtest, xtrain, ytrain, method)
+    σs = diag(_σs)
 
     # gp (whole data)
     p = plot(xtest, μs_whole-2sqrt.(σs_whole); label="", alpha=0, fill=μs_whole+2sqrt.(σs_whole), fillalpha=0.3, color=:blue)
