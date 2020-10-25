@@ -4,6 +4,7 @@ authors = ["sunbluesome <chemchem.swm@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
 Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
 IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"

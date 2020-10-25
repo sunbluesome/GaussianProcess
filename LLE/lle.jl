@@ -1,8 +1,7 @@
 using LinearAlgebra
+using SparseArrays
 using Arpack
 using StatsBase
-using LightGraphs
-using SimpleWeightedGraphs
 using PyCall
 using Plots
 using ProgressMeter
@@ -37,37 +36,35 @@ end
 σ = 1000.
 k = GaussianKernel(τ, σ)
 
-# adjacency matrix
-m = 20
+# calculate W matrix
+function least_square(y::AbstractVector, X::AbstractMatrix; λ::Float64=1e-2)
+    Xᵀ = transpose(X)    
+    inv(Xᵀ * X + λ .* I(size(Xᵀ)[1])) * Xᵀ * y
+end
+
+m = 20  # number of neighbors
 K = kernel_matrix(k, X_1d)
-g = SimpleWeightedGraph(size(K)[1])
+W = spzeros(size(K)...)
 for i in axes(K, 1)
-    ki = K[:, i]
+    # find neighbors.
+    ki = K[i, :]
     inds = findall(x -> x .≤ m, tiedrank(ki))
-    for j in inds
-        add_edge!(g, i, j, K[j, i])
-    end
-end
-D =  adjacency_matrix(g)
-
-# shortest paths by Dijkstra's algorithm
-@showprogress 1 "Dijkstra's algorithm: " for i in 1:n_samples
-    dijk = dijkstra_shortest_paths(g, i);
-    D[:, i] .= dijk.dists
+    # optimize
+    W[i, inds] = least_square(X_1d[i], X_2d[inds, :]')
 end
 
-D_mean_row = mean(D, dims=1)
-D_mean_col = mean(D, dims=2)
-D_mean_all = mean(D)
-gm = 0.5 * (-D .+ D_mean_row .+ D_mean_col .- D_mean_all)
+# get kernel matrix
+c = 1e-8
+Wᵀ = transpose(W)
+K̃ = W + Wᵀ - Wᵀ * W
+K_lle = K̃ + c .* I(size(K̃)[1])
 
-# kenrel PCA
+# # kenrel PCA
 vec_1 = ones(n_samples)
 Jn = Matrix(I, n_samples, n_samples) - (vec_1 * vec_1') / n_samples
-f = eigen(Jn * gm)
-# f = eigs(gm, nev=2)
-eigen_values = f.values
-eigen_vectors = f.vectors
+f = eigen(Jn * K_lle)
+eigen_values = reverse(f.values)
+eigen_vectors = reverse(f.vectors, dims=2)
 
 function kpca(k, x_all, x, α)
     g = 0
@@ -78,7 +75,7 @@ function kpca(k, x_all, x, α)
 end
 kpca_partial(x, α) = kpca(k, X_1d, x, α)
 
-# dimension reduction to 2d
+# # dimension reduction to 2d
 ndim = 2
 X_kpca = zeros(Float64, ndim, n_samples)
 for j in 1:ndim
@@ -101,5 +98,5 @@ for i in 2:5
     )
 end
 
-savepath = @sprintf("%s/isomap_(sigma=%s).png", @__DIR__, σ)
+savepath = @sprintf("%s/lle_(sigma=%s).png", @__DIR__, σ)
 savefig(savepath)
