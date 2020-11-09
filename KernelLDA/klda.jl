@@ -9,7 +9,7 @@ cluster = pyimport("sklearn.cluster")
 neighbors = pyimport("sklearn.neighbors")
 
 # circle
-n_samples = 1500
+n_samples = 100
 factor = 0.3
 noise = 0.05
 random_state = 0
@@ -25,14 +25,14 @@ end
 
 # kenrel
 τ = 1.0
-σ = 0.3
+σ = 0.25
 k = GaussianKernel(τ, σ)
 
 # Kernel matrix
 K = kernel_matrix(k, X_1d)
 # kmatrix_partial(x::AbstractVector{T}) where T<:Real = kernel_matrix(k, X_1d, [x])
 
-ζ = 0.0049
+ζ = 1e-8
 Vw = zero(K)
 VB = zero(K)
 for l in 1:num_class
@@ -48,11 +48,11 @@ for l in 1:num_class
 end
 
 f = eigen(VB, (Vw + ζ * K))
-eigen_values = f.values
-eigen_vectors = f.vectors
+eigen_values = reverse(f.values)
+eigen_vectors = reverse(f.vectors, dims=1)
 
 # mapping into RKHS
-X_map = eigen_vectors[[1], :] * K
+X_map = transpose(eigen_vectors[:, 1]) * K
 
 # plot
 c1 = findall(x -> x == 1, y) 
